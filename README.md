@@ -4,8 +4,8 @@
 
 ### Описание / Description
 
-- Простой веб‑сервис на FastAPI с POST `/embed`, который принимает текст и возвращает эмбеддинг.
-- Использует локальную библиотеку эмбеддингов `fastembed` с моделью `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (подходит для русского и английского).
+- Простой веб‑сервис на FastAPI с POST `/embed`, который принимает текст и параметр `role` (`query` или `passage`) и возвращает эмбеддинг.
+- Использует библиотеку `sentence-transformers` с моделью `intfloat/multilingual-e5-large-instruct` (E5 instruct, подходит для русского и английского; для модели автоматически добавляются префиксы `query:` и `passage:`).
 
 ### Требования / Requirements
 
@@ -39,10 +39,20 @@ curl http://127.0.0.1:8000/health
 
 POST `/embed`
 
+Тело запроса / Request body: `text` (строка) и `role` — один из `"query"` (поисковый запрос) или `"passage"` (документ/пассаж для индексации). Сервис сам добавляет префиксы `query:` и `passage:` к тексту перед кодированием.
+
 ```bash
 curl -X POST http://127.0.0.1:8000/embed \
   -H "Content-Type: application/json" \
-  -d '{"text": "Пример текста / Example text"}'
+  -d '{"text": "Пример поискового запроса", "role": "query"}'
+```
+
+Для пассажа / For passage:
+
+```bash
+curl -X POST http://127.0.0.1:8000/embed \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Фрагмент документа для индексации", "role": "passage"}'
 ```
 
 Пример ответа / Example response:
@@ -50,8 +60,8 @@ curl -X POST http://127.0.0.1:8000/embed \
 ```json
 {
   "embedding": [0.0123, -0.0456, ...],
-  "model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-  "dim": 384
+  "model": "intfloat/multilingual-e5-large-instruct",
+  "dim": 1024
 }
 ```
 

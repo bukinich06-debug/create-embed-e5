@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List
+from typing import List, Literal
 import os
 
 # Configure writable caches for read-only environments (e.g., Vercel). Must run before importing ML libs.
@@ -28,18 +28,18 @@ if (
         except Exception:
             pass
 
-from fastembed import TextEmbedding
+from sentence_transformers import SentenceTransformer
 
 
 app = FastAPI(title="Embedding Service", version="0.1.0")
 
 
-MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+MODEL_NAME = "intfloat/multilingual-e5-large-instruct"
 
 
 # Initialize the embedding model at startup (lazy fallback if initial init fails)
 try:
-    embedding_model = TextEmbedding(model_name=MODEL_NAME)
+    embedding_model = SentenceTransformer(MODEL_NAME)
     model_init_error = None
 except Exception as exc:  # pragma: no cover - environment dependent
     embedding_model = None
@@ -48,6 +48,7 @@ except Exception as exc:  # pragma: no cover - environment dependent
 
 class EmbedRequest(BaseModel):
     text: str
+    role: Literal["query", "passage"]
 
 
 class EmbedResponse(BaseModel):
@@ -72,11 +73,12 @@ async def embed(req: EmbedRequest) -> EmbedResponse:
 
         # Lazy re-init if startup failed
         if embedding_model is None:
-            embedding_model = TextEmbedding(model_name=MODEL_NAME)
+            embedding_model = SentenceTransformer(MODEL_NAME)
             model_init_error = None
 
-        vectors = list(embedding_model.embed([req.text]))
-        if not vectors:
+        prefixed = f"{req.role}: {req.text}"
+        vectors = embedding_model.encode([prefixed], normalize_embeddings=True)
+        if len(vectors) == 0:
             raise RuntimeError("No embedding returned from model")
 
         vec = vectors[0]
