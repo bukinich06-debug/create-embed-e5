@@ -29,12 +29,14 @@ if (
             pass
 
 from sentence_transformers import SentenceTransformer
+from FlagEmbedding import FlagAutoReranker
 
 
 app = FastAPI(title="Embedding Service", version="0.1.0")
 
 
 MODEL_NAME = "intfloat/multilingual-e5-large-instruct"
+RERANKER_MODEL_NAME = "BAAI/bge-reranker-v2-m3"
 
 
 # Initialize the embedding model at startup (lazy fallback if initial init fails)
@@ -44,6 +46,15 @@ try:
 except Exception as exc:  # pragma: no cover - environment dependent
     embedding_model = None
     model_init_error = exc
+
+
+# Initialize the reranker model at startup (lazy fallback if initial init fails)
+try:
+    reranker_model = FlagAutoReranker.from_finetuned(RERANKER_MODEL_NAME)
+    reranker_init_error = None
+except Exception as exc:  # pragma: no cover - environment dependent
+    reranker_model = None
+    reranker_init_error = exc
 
 
 class EmbedRequest(BaseModel):
@@ -57,12 +68,24 @@ class EmbedResponse(BaseModel):
     dim: int
 
 
+class RerankRequest(BaseModel):
+    query: str
+    documents: List[str]
+
+
+class RerankResponse(BaseModel):
+    scores: List[float]
+    model: str
+
+
 @app.get("/health")
 async def health() -> dict:
     return {
         "status": "ok",
         "model": MODEL_NAME,
         "ready": embedding_model is not None and model_init_error is None,
+        "reranker_model": RERANKER_MODEL_NAME,
+        "reranker_ready": reranker_model is not None and reranker_init_error is None,
     }
 
 
@@ -91,5 +114,28 @@ async def embed(req: EmbedRequest) -> EmbedResponse:
         )
     except Exception as e:  # pragma: no cover - runtime safety
         raise HTTPException(status_code=500, detail=f"Embedding error: {e}")
+
+
+@app.post("/rerank", response_model=RerankResponse)
+async def rerank(req: RerankRequest) -> RerankResponse:
+    try:
+        global reranker_model, reranker_init_error
+
+        # Lazy re-init if startup failed
+        if reranker_model is None:
+            reranker_model = FlagAutoReranker.from_finetuned(RERANKER_MODEL_NAME)
+            reranker_init_error = None
+
+        if not req.documents:
+            return RerankResponse(scores=[], model=RERANKER_MODEL_NAME)
+
+        pairs = [(req.query, doc) for doc in req.documents]
+        scores = reranker_model.compute_score(pairs, normalize=True)
+
+        score_list = [float(s) for s in scores]
+
+        return RerankResponse(scores=score_list, model=RERANKER_MODEL_NAME)
+    except Exception as e:  # pragma: no cover - runtime safety
+        raise HTTPException(status_code=500, detail=f"Rerank error: {e}")
 
 

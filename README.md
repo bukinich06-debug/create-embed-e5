@@ -5,7 +5,9 @@
 ### Описание / Description
 
 - Простой веб‑сервис на FastAPI с POST `/embed`, который принимает текст и параметр `role` (`query` или `passage`) и возвращает эмбеддинг.
-- Использует библиотеку `sentence-transformers` с моделью `intfloat/multilingual-e5-large-instruct` (E5 instruct, подходит для русского и английского; для модели автоматически добавляются префиксы `query:` и `passage:`).
+- Дополнительно предоставляет POST `/rerank`, который принимает поисковый запрос и список документов и возвращает релевантности документов к запросу.
+- Для эмбеддингов используется библиотека `sentence-transformers` с моделью `intfloat/multilingual-e5-large-instruct` (E5 instruct, подходит для русского и английского; для модели автоматически добавляются префиксы `query:` и `passage:`).
+- Для rerank используется модель `BAAI/bge-reranker-v2-m3` из библиотеки `FlagEmbedding`.
 
 ### Требования / Requirements
 
@@ -16,7 +18,9 @@
 
 ```bash
 python -m venv .venv
-./.venv/Scripts/pip install -r requirements.txt  # Windows PowerShell
+# Убедитесь, что пакеты ставятся в venv проекта (используйте python -m pip):
+# Make sure packages install into the project venv (use python -m pip):
+./.venv/Scripts/python -m pip install -r requirements.txt  # Windows
 # или / or
 source .venv/bin/activate && pip install -r requirements.txt  # Linux/macOS
 ```
@@ -65,7 +69,47 @@ curl -X POST http://127.0.0.1:8000/embed \
 }
 ```
 
+### Использование reranker / Reranker usage
+
+POST `/rerank`
+
+Тело запроса / Request body:
+
+```json
+{
+  "query": "Пример поискового запроса",
+  "documents": [
+    "Краткий текст документа 1",
+    "Краткий текст документа 2"
+  ]
+}
+```
+
+Пример запроса / Example request:
+
+```bash
+curl -X POST http://127.0.0.1:8000/rerank \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Пример поискового запроса",
+    "documents": [
+      "Краткий текст документа 1",
+      "Краткий текст документа 2"
+    ]
+  }'
+```
+
+Пример ответа / Example response:
+
+```json
+{
+  "scores": [0.95, 0.12],
+  "model": "BAAI/bge-reranker-v2-m3"
+}
+```
+
 ### Примечания / Notes
 
 - Первая генерация может занять время из‑за загрузки модели. Модель кэшируется.
 - Эндпоинт `/docs` содержит авто‑документацию Swagger UI.
+
