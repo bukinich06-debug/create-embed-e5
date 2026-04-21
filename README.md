@@ -14,23 +14,26 @@
 - Python 3.11+ (проверено на Python 3.13)
 - Интернет для первого скачивания моделей (кэшируется локально)
 
-### Установка / Setup
+### Установка и запуск / Setup and run
 
-```bash
-python -m venv .venv
-# Убедитесь, что пакеты ставятся в venv проекта (используйте python -m pip):
-# Make sure packages install into the project venv (use python -m pip):
-./.venv/Scripts/python -m pip install -r requirements.txt  # Windows
-# или / or
-source .venv/bin/activate && pip install -r requirements.txt  # Linux/macOS
+**Windows** — откройте PowerShell **в корне проекта** и выполните по порядку:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### Запуск / Run
+Если команда `py` не находится, но установлен обычный Python, замените первую строку на `python -m venv .venv`.  
+*If `py` is missing, use `python -m venv .venv` as the first line.*
+
+**Linux и macOS** — в терминале **в корне проекта**:
 
 ```bash
-./.venv/Scripts/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload  # Windows
-# или / or
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload  # активированный venv
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### Проверка / Healthcheck
